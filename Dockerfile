@@ -8,7 +8,7 @@ COPY package*.json ./
 COPY scripts/ ./scripts/
 
 # Install dependencies
-RUN npm ci || npm install
+RUN npm install
 
 # Copy application source code
 COPY . .
@@ -23,19 +23,18 @@ RUN npm run build
 # ── Stage 2: Serve with Nginx ────────────────────────────────────────────────
 FROM nginx:alpine
 
+# Default port to 5174 for local runs; Render overrides $PORT dynamically
+ENV PORT=5174
+
 # Remove default nginx static files
 RUN rm -rf /usr/share/nginx/html/*
 
 # Copy built distribution from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom nginx configuration with SPA fallback and port 5174
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom nginx template (Nginx automatically substitutes ${PORT} into /etc/nginx/conf.d/default.conf on startup)
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 EXPOSE 5174
-
-# Container healthcheck
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:5174/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
